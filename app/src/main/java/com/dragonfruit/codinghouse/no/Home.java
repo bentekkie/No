@@ -90,8 +90,7 @@ public class Home extends Activity implements SensorEventListener {
         soundPool0 = new SoundPool(1, AudioManager.STREAM_MUSIC, 0);
         soundPool1 = new SoundPool(1, AudioManager.STREAM_MUSIC, 0);
         soundPool2 = new SoundPool(5, AudioManager.STREAM_MUSIC, 0);
-        sound0 = soundPool0.load(this, R.raw.noaud, 1);
-        sound1 = soundPool1.load(this, R.raw.onaud, 1);
+        sound0 = soundPool0.load(this, R.raw.intro, 1);
         super.onCreate(savedInstanceState);
         noButton = new ImageButton(this);
         recButton = new ImageButton(this);
@@ -144,7 +143,6 @@ public class Home extends Activity implements SensorEventListener {
             public void onClick(View view) {
                 if (playSound) {
                     if(customSound){if(!isPlaying)play();}
-                    else if (!oriantaton) soundPool1.play(sound1, 1.0f, 1.0f, 0, 0, 1.0f);
                     else soundPool0.play(sound0, 1.0f, 1.0f, 0, 0, 1.0f);
                     playSound = false;
                 }
@@ -262,7 +260,7 @@ private class PlayAudio extends AsyncTask<Void, Integer, Void> {
                     AudioManager.STREAM_MUSIC, frequency,
                     channelConfiguration, audioEncoding, bufferSize,
                     AudioTrack.MODE_STREAM);
-
+            audioTrack.setStereoVolume(5.0f,5.0f);
             audioTrack.play();
             while (isPlaying && dis.available() > 0) {
                 int i = 0;
