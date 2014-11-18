@@ -17,17 +17,26 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.media.AudioManager;
 import android.media.SoundPool;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
+import android.util.Log;
 import android.view.Display;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.media.*;
+import android.widget.TextView;
 
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -59,9 +68,17 @@ public class Home extends Activity implements SensorEventListener {
     MediaRecorder recorder = new MediaRecorder();
     FileOutputStream fos ;
     String mFileName;
+    RecordAudio recordTask;
+    PlayAudio playTask;
+    File recordingFile;
+    boolean isRecording = false,isPlaying = false;
+
+    int frequency = 11025,channelConfiguration = AudioFormat.CHANNEL_CONFIGURATION_MONO;
+    int audioEncoding = AudioFormat.ENCODING_PCM_16BIT;
     protected void onCreate(Bundle savedInstanceState) {
         mFileName = Environment.getExternalStorageDirectory().getAbsolutePath();
         mFileName += "/nosound.m4a";
+        recordingFile = new File(mFileName);
         recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
         recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
         recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
@@ -98,34 +115,19 @@ public class Home extends Activity implements SensorEventListener {
 
                 switch(event.getAction()){
                     case MotionEvent.ACTION_DOWN:
-                        try {
-                            recorder.prepare();
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                        recorder.start();
+
+                        record();
                         recorderOn = true;
                         noButton.setBackgroundColor(Color.parseColor("#ffff1842"));
                         recButton.setBackgroundColor(Color.parseColor("#ffff1842"));
                         break;
                     case MotionEvent.ACTION_UP:
-                        if(recorderOn) recorder.stop();
-                        recorder.release();
-                        recorder = new MediaRecorder();
-                        recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-                        recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-                        recorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
-                        try {
-                            FileInputStream fs = new FileInputStream(mFileName);
-                        } catch (FileNotFoundException e) {
-                            e.printStackTrace();
-                        }
+                        stopRecording();
 
-                        recorder.setOutputFile(mFileName);
-                        sound2 = soundPool2.load(mFileName, 1);
                         customSound = true;
                         noButton.setBackgroundColor(Color.WHITE);
                         recButton.setBackgroundColor(Color.WHITE);
+                        break;
 
                 }
 
@@ -141,7 +143,7 @@ public class Home extends Activity implements SensorEventListener {
 
             public void onClick(View view) {
                 if (playSound) {
-                    if(customSound) soundPool2.play(sound2,1.0f,1.0f,0,0,1.0f);
+                    if(customSound){if(!isPlaying)play();}
                     else if (!oriantaton) soundPool1.play(sound1, 1.0f, 1.0f, 0, 0, 1.0f);
                     else soundPool0.play(sound0, 1.0f, 1.0f, 0, 0, 1.0f);
                     playSound = false;
@@ -192,7 +194,20 @@ public class Home extends Activity implements SensorEventListener {
         //super.setTheme(android.R.style.Theme_Black_NoTitleBar);
         super.setContentView(main);
     }
-
+    public void record() {
+        recordTask = new RecordAudio();
+        recordTask.execute();
+    }
+    public void play() {
+        playTask = new PlayAudio();
+        playTask.execute();
+    }
+    public void stopPlaying() {
+        isPlaying = false;
+    }
+    public void stopRecording() {
+        isRecording = false;
+    }
     public Bitmap drawableToBitmap (Drawable drawable, int width) {
 
 
@@ -231,5 +246,78 @@ public class Home extends Activity implements SensorEventListener {
 
     }
 
-    }
 
+
+private class PlayAudio extends AsyncTask<Void, Integer, Void> {
+    @Override
+    protected Void doInBackground(Void... params) {
+        isPlaying = true;
+
+        int bufferSize = AudioTrack.getMinBufferSize(frequency,channelConfiguration, audioEncoding);
+        short[] audiodata = new short[bufferSize / 4];
+
+        try {
+            DataInputStream dis = new DataInputStream(new BufferedInputStream(new FileInputStream(recordingFile)));
+            AudioTrack audioTrack = new AudioTrack(
+                    AudioManager.STREAM_MUSIC, frequency,
+                    channelConfiguration, audioEncoding, bufferSize,
+                    AudioTrack.MODE_STREAM);
+
+            audioTrack.play();
+            while (isPlaying && dis.available() > 0) {
+                int i = 0;
+                while (dis.available() > 0 && i < audiodata.length) {
+                    audiodata[i] = dis.readShort();
+                    i++;
+                }
+                audioTrack.write(audiodata, 0, audiodata.length);
+            }
+            dis.close();
+        } catch (Throwable t) {
+            Log.e("AudioTrack", "Playback Failed");
+        }
+        isPlaying = false;
+        return null;
+
+    }
+}
+
+private class RecordAudio extends AsyncTask<Void, Integer, Void> {
+    @Override
+    protected Void doInBackground(Void... params) {
+        isRecording = true;
+        try {
+            DataOutputStream dos = new DataOutputStream(
+                    new BufferedOutputStream(new FileOutputStream(
+                            recordingFile)));
+            int bufferSize = AudioRecord.getMinBufferSize(frequency,
+                    channelConfiguration, audioEncoding);
+            AudioRecord audioRecord = new AudioRecord(
+                    MediaRecorder.AudioSource.MIC, frequency,
+                    channelConfiguration, audioEncoding, bufferSize);
+
+            short[] buffer = new short[bufferSize];
+            audioRecord.startRecording();
+            int r = 0;
+            while (isRecording) {
+                int bufferReadResult = audioRecord.read(buffer, 0,
+                        bufferSize);
+                for (int i = 0; i < bufferReadResult; i++) {
+                    dos.writeShort(buffer[i]);
+                }
+                publishProgress(new Integer(r));
+                r++;
+            }
+            audioRecord.stop();
+            dos.close();
+        } catch (Throwable t) {
+            Log.e("AudioRecord", "Recording Failed");
+        }
+        return null;
+    }
+    protected void onProgressUpdate(Integer... progress) {
+    }
+    protected void onPostExecute(Void result) {
+    }
+}
+}
