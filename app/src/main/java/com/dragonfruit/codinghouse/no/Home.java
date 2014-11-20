@@ -9,7 +9,6 @@ import android.graphics.Color;
 import android.graphics.Matrix;
 import android.graphics.Point;
 import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -25,23 +24,18 @@ import android.view.Display;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.RelativeLayout;
 import android.media.*;
-import android.widget.TextView;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileDescriptor;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.IOException;
 
 
 public class Home extends Activity implements SensorEventListener {
@@ -57,8 +51,6 @@ public class Home extends Activity implements SensorEventListener {
     Boolean customSound = false;
     Boolean playSound = false;
     int sound0;
-    int sound1;
-    int sound2;
     float standardGravity;
     float thresholdGraqvity;
     Boolean recorderOn = false;
@@ -66,7 +58,6 @@ public class Home extends Activity implements SensorEventListener {
     private Sensor myGravitySensor;
     Boolean oriantaton = true;
     MediaRecorder recorder = new MediaRecorder();
-    FileOutputStream fos ;
     String mFileName;
     RecordAudio recordTask;
     PlayAudio playTask;
@@ -97,16 +88,18 @@ public class Home extends Activity implements SensorEventListener {
         main = new RelativeLayout(this);
         nblayout.addRule(RelativeLayout.CENTER_HORIZONTAL);
         nblayout.addRule(RelativeLayout.CENTER_VERTICAL);
-        recButton.setBackgroundColor(Color.WHITE);
+        recButton.setBackgroundColor(Color.TRANSPARENT);
 
         WindowManager wm = (WindowManager) this.getSystemService(Context.WINDOW_SERVICE);
         Display display = wm.getDefaultDisplay();
         Point size = new Point();
         display.getSize(size);
         int width = size.x;
+        int widtha = (width*9)/10;
         rblayout = new RelativeLayout.LayoutParams(width/4,width/4);
-        rblayout.addRule(RelativeLayout.ALIGN_PARENT_END);
-        rblayout.addRule(RelativeLayout.ALIGN_BASELINE);
+        rblayout.addRule(RelativeLayout.ALIGN_PARENT_LEFT);
+        rblayout.addRule(RelativeLayout.ALIGN_PARENT_TOP);
+        rblayout.setMargins(2*(width/3),size.y/2+(width/2)-(width/3),0,0);
         recButton.setImageBitmap(drawableToBitmap(getResources().getDrawable(R.drawable.rec_default), rblayout.width));
         recButton.setOnTouchListener(new View.OnTouchListener() {
 
@@ -118,14 +111,14 @@ public class Home extends Activity implements SensorEventListener {
                         record();
                         recorderOn = true;
                         noButton.setBackgroundColor(Color.parseColor("#ffff1842"));
-                        recButton.setBackgroundColor(Color.parseColor("#ffff1842"));
+                        //recButton.setBackgroundColor(Color.parseColor("#ffff1842"));
                         break;
                     case MotionEvent.ACTION_UP:
                         stopRecording();
 
                         customSound = true;
                         noButton.setBackgroundColor(Color.WHITE);
-                        recButton.setBackgroundColor(Color.WHITE);
+                       // recButton.setBackgroundColor(Color.parseColor("#ff3399ff"));
                         break;
 
                 }
@@ -134,7 +127,7 @@ public class Home extends Activity implements SensorEventListener {
                 return false;
             }
         });
-        int widtha = (width*9)/10;
+
         noButton.setImageBitmap(drawableToBitmap(getResources().getDrawable(R.drawable.no_default), widtha));
         noButton.setBackgroundColor(Color.WHITE);
         noButton.setSoundEffectsEnabled(false);
@@ -193,6 +186,7 @@ public class Home extends Activity implements SensorEventListener {
         super.setContentView(main);
     }
     public void record() {
+        isPlaying = false;
         recordTask = new RecordAudio();
         recordTask.execute();
     }
